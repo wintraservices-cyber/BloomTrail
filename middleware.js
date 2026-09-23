@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth';
 
-// Paths that must stay reachable WITHOUT a valid session, so the person
-// can actually reach the PIN screen and submit it.
-const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+// Paths that must stay reachable WITHOUT a valid session — the login page
+// itself, and signup (which allows the very first bootstrap account to be
+// created with no one logged in yet; the route itself re-checks whether a
+// session is required once there's already at least one user).
+const PUBLIC_PATHS = ['/login', '/signup', '/api/auth/login', '/api/auth/signup'];
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
@@ -22,9 +24,9 @@ export async function middleware(request) {
   }
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const valid = await verifySessionToken(token);
+  const userId = await verifySessionToken(token);
 
-  if (!valid) {
+  if (!userId) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
@@ -32,7 +34,12 @@ export async function middleware(request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Forward the authenticated user's id to API routes via a request header,
+  // so every route can scope its database queries to this user without
+  // re-verifying the cookie itself.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-bloom-user-id', userId);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

@@ -3,17 +3,35 @@
 A private medical journey tracker: calendar, appointments, a symptom/condition
 timeline, a care team roster, recurring reminders, and billing — with two
 optional AI features (plain-language explanations of results, and a gentle
-reflection on how an appointment went) and a shared PIN so it works the same
-way from any of your devices.
+reflection on how an appointment went). Each person who uses it has their
+own username and password, and never sees anyone else's data.
 
 ## What this is
 
 - **Next.js** app (App Router), deployed on **Vercel**
-- **Postgres** (via Vercel's Storage tab, powered by Neon) for the actual data,
-  so it's the same on your phone, laptop, or anywhere else you sign in
-- A single shared **PIN** unlocks the whole app — no accounts, no emails
+- **Postgres** (via Vercel's Storage tab, powered by Neon) for the actual data
+- **Per-person accounts** — each person creates their own username and
+  password; every profile (journey) belongs to exactly one account, and the
+  database enforces that no one can read or write another account's data
 - The AI buttons call **your own Anthropic API key** from the server, never
   from the browser
+
+## How accounts work
+
+- The **first account ever created** (when the database has no users yet)
+  can be made freely at `/signup` — this is how you bootstrap your own login.
+- After that, **new accounts can only be created by someone already logged
+  in** — via the "Invite someone" link in the app's header. This keeps the
+  app closed to the people you actually invite, rather than open to anyone
+  who finds the URL.
+- Each account can have more than one **profile** (e.g. your own journey and
+  a parent's, if you're the one tracking both) via the "+" button — but a
+  profile is only ever visible to the account that owns it. There's no way
+  to share a single profile between two different logins.
+- There's no email-based password reset built in. If someone forgets their
+  password, an existing account holder would need to reset it directly in
+  the database (see "Resetting a password" below) — or you can add an email
+  provider yourself later if you want that flow.
 
 ## One-time setup
 
@@ -53,7 +71,6 @@ In your Vercel project: **Settings** → **Environment Variables**, add:
 
 | Name | Value |
 |---|---|
-| `BLOOM_TRAIL_PIN` | Any PIN you want, e.g. `847213` |
 | `BLOOM_TRAIL_SESSION_SECRET` | A long random string — generate one with `openssl rand -hex 32` in a terminal, or any password generator |
 | `ANTHROPIC_API_KEY` | Your API key from [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) (only needed if you want the ✨ Explain / ✨ Reflect buttons to work) |
 
@@ -75,16 +92,42 @@ This creates the one table Bloom Trail needs. You only need to do this once.
 ### 6. Deploy
 
 Back in the Vercel dashboard, trigger a deploy (or just push a commit — Vercel
-redeploys automatically). Visit your new `.vercel.app` URL, enter the PIN you
-set in step 4, and you're in.
+redeploys automatically). Visit your new `.vercel.app` URL — you'll land on
+`/signup` automatically the first time, since no accounts exist yet. Create
+your own username and password there; you'll be logged straight in.
+
+## Resetting a password
+
+There's no self-service "forgot password" flow. If you need to reset
+someone's password directly, run this from your own computer (with
+`vercel env pull .env.local` already done):
+
+```bash
+node -e "
+require('dotenv').config({ path: '.env.local' });
+const { neon } = require('@neondatabase/serverless');
+const bcrypt = require('bcryptjs');
+const sql = neon(process.env.DATABASE_URL);
+(async () => {
+  const hash = await bcrypt.hash('their-new-password', 10);
+  await sql\`UPDATE users SET password_hash = \${hash} WHERE username = 'their-username';\`;
+  console.log('Password updated.');
+})();
+"
+```
+(You may need `npm install dotenv` first if you don't already have it.)
 
 ## Using it day to day
 
-- Open the same URL on any device, enter the same PIN, and you'll see the
-  same data — appointments, care team, everything.
-- Use the **profile switcher** in the top-right of the header to add a
-  separate profile for someone else's journey (a parent's, a child's) — each
-  profile's data is completely separate.
+- Log in with your own username and password from any device — you'll see
+  the same data everywhere.
+- To let someone else use Bloom Trail with their own private data, click
+  **"Invite someone"** in the header (only works while you're logged in) and
+  have them set their own username and password.
+- Use the **profile switcher** (the dropdown, plus **+**) if you want to
+  track more than one journey under your own account — e.g. your own and a
+  parent's you're personally responsible for. This does NOT let anyone else
+  see that profile; it's still private to your login.
 - The ✨ **Explain** button (inside an appointment, under "Documents from this
   visit") turns a pasted lab result or note into a plain-language summary.
   It's general information only, never medical advice.
@@ -107,30 +150,33 @@ Visit `http://localhost:3000`.
 app/
   layout.js              Root layout
   page.js                Main page (renders the app once logged in)
-  login/page.js           PIN entry screen
+  login/page.js           Username/password login screen
+  signup/page.js          Create an account (bootstrap, or invite by an existing user)
   api/
-    auth/login/route.js   Checks the PIN, issues a session cookie
+    auth/login/route.js   Verifies username/password, issues a session cookie
+    auth/signup/route.js  Creates an account (first one free, later ones invite-only)
     auth/logout/route.js  Clears the session cookie
-    data/profiles/        List/create/rename/delete profiles; get/save data
+    data/profiles/        List/create/rename/delete profiles; get/save data — all scoped to the logged-in user
     ai/explain/route.js   Server-side call to Claude for document explanations
     ai/reflect/route.js   Server-side call to Claude for appointment reflections
 components/
   BloomTrailApp.js        All the UI and client-side logic
 lib/
-  auth.js                 PIN checking + signed session tokens (Edge-safe)
-  db.js                   Postgres queries (via Neon's serverless driver)
-middleware.js              Gates every page/route behind a valid session
+  auth.js                 Session tokens carrying which user is logged in (Edge-safe)
+  db.js                   Postgres queries — users, and profiles scoped by user_id
+middleware.js              Gates every page/route behind a valid session, forwards the user's id
 scripts/
-  init-db.mjs             One-time table creation script
+  init-db.mjs             One-time table creation (users + profiles), with migration for older installs
 ```
 
 ## Notes on privacy
 
 - Nothing is stored anywhere except your own Postgres database, which only
   you (via Vercel) control.
-- The PIN gate is meant to keep casual/opportunistic access out — it is not
-  bank-grade security. Don't reuse a PIN you use elsewhere, and don't share
-  the URL publicly.
+- Password-based login is meant to keep each person's data genuinely
+  separate from everyone else's — but this app has no rate-limiting or
+  lockout on repeated failed logins, so use a real password, not something
+  guessable, and don't share the URL publicly.
 - The Explain/Reflect buttons send only the specific text you put in that
   field to Anthropic's API when you press them — nothing else on the page is
   sent, and nothing is sent unless you press those buttons.

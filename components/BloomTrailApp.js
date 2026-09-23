@@ -300,9 +300,12 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <button className="icon-btn" title="Add a new person's journey" onClick={onAddProfile} style={{ fontSize: 18, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '4px 9px' }}>+</button>
+          <button className="icon-btn" title="Add another journey to your own account (e.g. tracking a parent's care yourself)" onClick={onAddProfile} style={{ fontSize: 18, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '4px 9px' }}>+</button>
           <button className="icon-btn" title="Rename this profile" onClick={onRenameProfile}>✎</button>
           <button className="icon-btn" title="Delete this profile" onClick={onDeleteProfile}>✕</button>
+          <a href="/signup" className="ghost" style={{ fontSize: 12, padding: '6px 10px', textDecoration: 'none', display: 'inline-block' }} title="Create a separate login for someone else, so their data stays private from yours">
+            Invite someone
+          </a>
           <button className="ghost" onClick={onLogout} style={{ fontSize: 12, padding: '6px 10px' }}>Log out</button>
         </div>
       </div>

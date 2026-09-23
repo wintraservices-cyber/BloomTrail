@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { checkPin, createSessionToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '@/lib/auth';
+import { verifyUserPassword } from '@/lib/db';
+import { createSessionToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '@/lib/auth';
 
 export async function POST(request) {
   let body;
@@ -9,21 +10,27 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const { pin } = body || {};
+  const username = (body?.username || '').trim();
+  const password = body?.password || '';
 
-  let valid;
+  if (!username || !password) {
+    return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+  }
+
+  let user;
   try {
-    valid = checkPin(pin);
+    user = await verifyUserPassword(username, password);
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error(err);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 
-  if (!valid) {
-    return NextResponse.json({ error: 'Incorrect PIN' }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ error: 'Incorrect username or password' }, { status: 401 });
   }
 
-  const token = await createSessionToken();
-  const res = NextResponse.json({ ok: true });
+  const token = await createSessionToken(user.id);
+  const res = NextResponse.json({ ok: true, username: user.username });
   res.cookies.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

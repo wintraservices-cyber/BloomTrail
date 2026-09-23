@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { listProfiles, createProfile, ensureAtLeastOneProfile } from '@/lib/db';
-import crypto from 'crypto';
+import { listProfilesForUser, createProfileForUser, ensureAtLeastOneProfileForUser } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   try {
-    const profiles = await ensureAtLeastOneProfile();
+    const profiles = await ensureAtLeastOneProfileForUser(userId);
     return NextResponse.json({ profiles });
   } catch (err) {
     console.error(err);
@@ -13,6 +15,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   let body;
   try {
     body = await request.json();
@@ -27,8 +32,8 @@ export async function POST(request) {
 
   try {
     const id = crypto.randomUUID();
-    await createProfile(id, name);
-    const profiles = await listProfiles();
+    await createProfileForUser(id, userId, name);
+    const profiles = await listProfilesForUser(userId);
     return NextResponse.json({ id, profiles });
   } catch (err) {
     console.error(err);

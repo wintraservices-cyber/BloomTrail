@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getProfileData, saveProfileData, renameProfile, deleteProfile, listProfiles } from '@/lib/db';
+import {
+  getProfileDataForUser,
+  saveProfileDataForUser,
+  renameProfileForUser,
+  deleteProfileForUser,
+  listProfilesForUser,
+} from '@/lib/db';
 
 export async function GET(request, { params }) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   try {
-    const data = await getProfileData(params.id);
+    const data = await getProfileDataForUser(params.id, userId);
     if (!data) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     return NextResponse.json({ data });
   } catch (err) {
@@ -14,6 +23,9 @@ export async function GET(request, { params }) {
 
 // Save the full data blob for this profile (appointments, providers, etc.)
 export async function PUT(request, { params }) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   let body;
   try {
     body = await request.json();
@@ -22,7 +34,7 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    await saveProfileData(params.id, body?.data || {});
+    await saveProfileDataForUser(params.id, userId, body?.data || {});
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -32,6 +44,9 @@ export async function PUT(request, { params }) {
 
 // Rename via PATCH
 export async function PATCH(request, { params }) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   let body;
   try {
     body = await request.json();
@@ -43,8 +58,8 @@ export async function PATCH(request, { params }) {
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
   try {
-    await renameProfile(params.id, name);
-    const profiles = await listProfiles();
+    await renameProfileForUser(params.id, userId, name);
+    const profiles = await listProfilesForUser(userId);
     return NextResponse.json({ ok: true, profiles });
   } catch (err) {
     console.error(err);
@@ -53,13 +68,16 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const userId = request.headers.get('x-bloom-user-id');
+  if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
   try {
-    const remaining = await listProfiles();
+    const remaining = await listProfilesForUser(userId);
     if (remaining.length <= 1) {
       return NextResponse.json({ error: "Can't delete your only profile" }, { status: 400 });
     }
-    await deleteProfile(params.id);
-    const profiles = await listProfiles();
+    await deleteProfileForUser(params.id, userId);
+    const profiles = await listProfilesForUser(userId);
     return NextResponse.json({ ok: true, profiles });
   } catch (err) {
     console.error(err);

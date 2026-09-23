@@ -20,10 +20,18 @@ own username and password, and never sees anyone else's data.
 
 - The **first account ever created** (when the database has no users yet)
   can be made freely at `/signup` — this is how you bootstrap your own login.
-- After that, **new accounts can only be created by someone already logged
-  in** — via the "Invite someone" link in the app's header. This keeps the
-  app closed to the people you actually invite, rather than open to anyone
-  who finds the URL.
+- After that, new accounts need either **an invite link** or **an existing
+  login**:
+  - Click **"Invite someone"** in the header to generate a one-time link.
+    It's valid for 7 days and stops working the moment someone signs up
+    with it (or you revoke it early from the same panel). Send the link
+    however you like — text, email, however you'd share any link.
+  - Alternatively, if you're already logged in, submitting `/signup`
+    yourself creates an account for someone else without needing a link —
+    though the invite-link flow is usually simpler since it doesn't
+    require you to stay logged in and do the typing for them.
+- Usernames are **not case-sensitive** ("Alice" and "alice" are the same
+  account) — passwords **are** case-sensitive, as normal.
 - Each account can have more than one **profile** (e.g. your own journey and
   a parent's, if you're the one tracking both) via the "+" button — but a
   profile is only ever visible to the account that owns it. There's no way
@@ -120,14 +128,21 @@ const sql = neon(process.env.DATABASE_URL);
 ## Using it day to day
 
 - Log in with your own username and password from any device — you'll see
-  the same data everywhere.
+  the same data everywhere. Usernames aren't case-sensitive; passwords are.
 - To let someone else use Bloom Trail with their own private data, click
-  **"Invite someone"** in the header (only works while you're logged in) and
-  have them set their own username and password.
+  **"Invite someone"** in the header and share the generated link — no need
+  to stay logged in while they sign up with it.
 - Use the **profile switcher** (the dropdown, plus **+**) if you want to
   track more than one journey under your own account — e.g. your own and a
   parent's you're personally responsible for. This does NOT let anyone else
   see that profile; it's still private to your login.
+- **Click any day on the calendar** to see everything tied to that date —
+  appointments, reminders due, and timeline entries — including past days,
+  so the calendar works as a real history, not just an upcoming list.
+- Each appointment and reminder has a **📅 Add to Calendar** button that
+  downloads a file your phone's calendar app can open directly, complete
+  with a reminder alarm — this is what actually notifies you, since Bloom
+  Trail itself only shows in-app reminders when you have the page open.
 - The ✨ **Explain** button (inside an appointment, under "Documents from this
   visit") turns a pasted lab result or note into a plain-language summary.
   It's general information only, never medical advice.

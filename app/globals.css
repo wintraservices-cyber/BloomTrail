@@ -213,7 +213,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
+    margin: 0;
   }
+  .cal-cell:not(:disabled):hover { background: var(--rose-pale); }
+  .cal-cell:disabled { cursor: default; }
   .cal-cell.out-month { opacity: 0.28; }
   .cal-cell.today { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
   .cal-cell .dot-row { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; }

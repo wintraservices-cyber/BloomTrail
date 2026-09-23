@@ -434,6 +434,7 @@ function BloomIcon({ size = 34 }) {
 
 function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onRenameProfile, onDeleteProfile, onLogout }) {
   const [now] = useState(() => new Date());
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   return (
     <header className="top">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -454,13 +455,144 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
           <button className="icon-btn" title="Add another journey to your own account (e.g. tracking a parent's care yourself)" onClick={onAddProfile} style={{ fontSize: 18, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '4px 9px' }}>+</button>
           <button className="icon-btn" title="Rename this profile" onClick={onRenameProfile}>✎</button>
           <button className="icon-btn" title="Delete this profile" onClick={onDeleteProfile}>✕</button>
-          <a href="/signup" className="ghost" style={{ fontSize: 12, padding: '6px 10px', textDecoration: 'none', display: 'inline-block' }} title="Create a separate login for someone else, so their data stays private from yours">
+          <button
+            className="ghost"
+            onClick={() => setInviteModalOpen(true)}
+            style={{ fontSize: 12, padding: '6px 10px' }}
+            title="Generate a link that lets someone else create their own private account"
+          >
             Invite someone
-          </a>
+          </button>
           <button className="ghost" onClick={onLogout} style={{ fontSize: 12, padding: '6px 10px' }}>Log out</button>
         </div>
       </div>
+      {inviteModalOpen && <InviteModal onClose={() => setInviteModalOpen(false)} />}
     </header>
+  );
+}
+
+function InviteModal({ onClose }) {
+  const [invites, setInvites] = useState([]);
+  const [newLink, setNewLink] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function loadInvites() {
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/invites');
+      const data = await resp.json();
+      if (resp.ok) setInvites(data.invites || []);
+    } catch (e) {
+      // silent — the list is a convenience, not critical
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadInvites(); }, []);
+
+  async function createInvite() {
+    setCreating(true);
+    setCopied(false);
+    try {
+      const resp = await fetch('/api/invites', { method: 'POST' });
+      const data = await resp.json();
+      if (resp.ok) {
+        const link = `${window.location.origin}/signup?invite=${data.token}`;
+        setNewLink(link);
+        setInvites(data.invites || []);
+      }
+    } catch (e) {
+      // leave newLink empty; person can retry
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeInvite(token) {
+    try {
+      const resp = await fetch('/api/invites', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await resp.json();
+      if (resp.ok) setInvites(data.invites || []);
+    } catch (e) {
+      // no-op
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(newLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function inviteStatus(inv) {
+    if (inv.used_at) return { label: `Used by ${inv.used_by_username || 'someone'}`, className: 'paid' };
+    if (new Date(inv.expires_at) < new Date()) return { label: 'Expired', className: 'unpaid' };
+    return { label: 'Active', className: 'pending' };
+  }
+
+  return (
+    <div className="modal-backdrop open" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <h3>Invite someone</h3>
+        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: -8, marginBottom: 16 }}>
+          Generate a link that lets one person create their own private account. Each link works once and expires after 7 days.
+        </p>
+
+        <button className="primary" onClick={createInvite} disabled={creating} style={{ marginBottom: 12 }}>
+          {creating ? 'Generating…' : '+ Generate invite link'}
+        </button>
+
+        {newLink && (
+          <div className="ai-box" style={{ marginBottom: 16, wordBreak: 'break-all' }}>
+            <span className="ai-label">New invite link — expires in 7 days, works once</span>
+            {newLink}
+            <div style={{ marginTop: 8 }}>
+              <button type="button" className="ghost" onClick={copyLink} style={{ fontSize: 12 }}>
+                {copied ? '✓ Copied' : 'Copy link'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="ai-label" style={{ marginBottom: 6 }}>Your invite links</div>
+        {loading ? (
+          <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Loading…</p>
+        ) : invites.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>None yet.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+            {invites.map((inv) => {
+              const status = inviteStatus(inv);
+              return (
+                <div key={inv.token} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12.5 }}>
+                  <div>
+                    <span className={`status-pill ${status.className}`}>{status.label}</span>{' '}
+                    <span style={{ color: 'var(--ink-soft)' }}>
+                      created {fmtDateLong(inv.created_at.slice(0, 10))}
+                    </span>
+                  </div>
+                  {!inv.used_at && (
+                    <button className="icon-btn" title="Revoke this link" onClick={() => revokeInvite(inv.token)}>✕</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="form-actions">
+          <button type="button" className="ghost" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -513,6 +645,7 @@ function Tabs({ view, setView, dueCount = 0 }) {
 function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
   const year = calCursor.getFullYear();
   const month = calCursor.getMonth();
@@ -577,21 +710,42 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
             const hasAppt = c.iso && data.appointments.some((a) => a.date === c.iso);
             const hasReminder = c.iso && data.reminders.some((r) => reminderOccursOn(r, c.iso));
             const hasSymptom = c.iso && data.timeline.some((s) => s.date === c.iso);
+            const hasAnything = hasAppt || hasReminder || hasSymptom;
             return (
-              <div key={i} className={`cal-cell ${c.inMonth ? 'in-month' : 'out-month'} ${c.iso === todayStr ? 'today' : ''}`}>
+              <button
+                key={i}
+                type="button"
+                onClick={() => c.iso && setSelectedDay(c.iso)}
+                disabled={!c.iso}
+                className={`cal-cell ${c.inMonth ? 'in-month' : 'out-month'} ${c.iso === todayStr ? 'today' : ''}`}
+                style={{
+                  cursor: c.iso ? 'pointer' : 'default',
+                  border: hasAnything ? undefined : (c.iso === todayStr ? undefined : '1px solid transparent'),
+                  font: 'inherit',
+                  color: 'inherit',
+                  background: c.iso === todayStr ? undefined : 'transparent',
+                }}
+              >
                 <div>{c.day}</div>
-                {(hasAppt || hasReminder || hasSymptom) && (
+                {hasAnything && (
                   <div className="dot-row">
                     {hasAppt && <div className="dot" />}
                     {hasReminder && <div className="dot reminder" />}
                     {hasSymptom && <div className="dot symptom" />}
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
+      {selectedDay && (
+        <DayDetailModal
+          iso={selectedDay}
+          data={data}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
       <div className="panel">
         <div className="panel-head"><h2>Upcoming</h2></div>
         {upcoming.length === 0 ? (
@@ -599,6 +753,81 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
         ) : (
           upcoming.map((a) => <ApptRow key={a.id} a={a} showActions={false} />)
         )}
+      </div>
+    </div>
+  );
+}
+
+// Shows everything tied to one specific date — past or future — so the
+// calendar works as a real history, not just an upcoming-only view.
+function DayDetailModal({ iso, data, onClose }) {
+  const dayAppts = data.appointments.filter((a) => a.date === iso);
+  const dayReminders = data.reminders.filter((r) => reminderOccursOn(r, iso));
+  const daySymptoms = data.timeline.filter((s) => s.date === iso);
+  const isPast = iso < todayISO();
+  const isToday = iso === todayISO();
+  const totalCount = dayAppts.length + dayReminders.length + daySymptoms.length;
+
+  return (
+    <div className="modal-backdrop open" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <h3>
+          {fmtDateLong(iso)}
+          {isToday && <span className="badge" style={{ marginLeft: 8 }}>Today</span>}
+          {isPast && !isToday && <span className="badge past" style={{ marginLeft: 8 }}>Past</span>}
+        </h3>
+
+        {totalCount === 0 ? (
+          <div className="empty-state">
+            <div className="big">Nothing recorded</div>
+            No appointments, reminders, or timeline entries for this day.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {dayAppts.length > 0 && (
+              <div>
+                <div className="ai-label" style={{ marginBottom: 6 }}>Appointments</div>
+                {dayAppts.map((a) => <ApptRow key={a.id} a={a} showActions={false} />)}
+              </div>
+            )}
+
+            {dayReminders.length > 0 && (
+              <div>
+                <div className="ai-label" style={{ marginBottom: 6 }}>Reminders due</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {dayReminders.map((r) => (
+                    <div key={r.id} className="item-row">
+                      <div className="item-body">
+                        <div className="item-title">{r.what}<span className="badge recurring">{r.freq}</span></div>
+                        {r.notes && <div className="item-notes">{r.notes}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {daySymptoms.length > 0 && (
+              <div>
+                <div className="ai-label" style={{ marginBottom: 6 }}>Timeline entries</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {daySymptoms.map((s) => (
+                    <div key={s.id} className="item-row">
+                      <div className="item-body">
+                        <div className="item-title">{s.what}<span className={`badge severity-${s.severity}`}>{s.severity}</span></div>
+                        {s.notes && <div className="item-notes">{s.notes}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="form-actions">
+          <button type="button" className="ghost" onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );

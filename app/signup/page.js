@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function SignupPage() {
+function SignupForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -12,6 +12,8 @@ export default function SignupPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get('invite') || '';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,7 +30,7 @@ export default function SignupPage() {
       const resp = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, invite: inviteToken || undefined }),
       });
       const data = await resp.json().catch(() => ({}));
 
@@ -37,9 +39,10 @@ export default function SignupPage() {
         return;
       }
 
-      // If this was the first-ever account, the server already logged us
-      // in and set the session cookie — go straight into the app.
-      // Otherwise (an existing user adding someone else), just confirm.
+      // The bootstrap (first-ever) account and any invite-link signup both
+      // get logged straight in by the server. An existing user adding
+      // someone else while staying logged in as themselves does not.
+      // Checking whether we can now load profiles tells us which happened.
       const meResp = await fetch('/api/data/profiles');
       if (meResp.ok) {
         router.push('/');
@@ -82,7 +85,7 @@ export default function SignupPage() {
           Bloom Trail
         </h1>
         <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 20 }}>
-          Set up an account
+          {inviteToken ? "You've been invited — set up your account" : 'Set up an account'}
         </p>
         <div style={{ textAlign: 'left', marginBottom: 12 }}>
           <label>Username</label>
@@ -128,5 +131,13 @@ export default function SignupPage() {
         </p>
       </form>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   );
 }

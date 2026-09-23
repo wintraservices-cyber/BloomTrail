@@ -51,12 +51,11 @@ export default function LoginPage() {
         className="panel"
         style={{ maxWidth: 360, width: '100%', textAlign: 'center' }}
       >
-        <svg width="56" height="56" viewBox="60 150 520 380" style={{ margin: '0 auto 12px' }} aria-hidden="true">
-          <path d="M 320 480 C 260 460, 195 400, 190 320 C 187 260, 225 210, 275 205 C 320 201, 350 235, 345 280 C 342 315, 315 335, 320 480 Z" fill="none" stroke="#c85c8e" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M 320 480 C 330 335, 303 315, 300 280 C 295 235, 325 201, 370 205 C 420 210, 458 260, 455 320 C 450 400, 385 460, 320 480 Z" fill="none" stroke="#c85c8e" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M 320 480 L 320 300" fill="none" stroke="#e0435f" strokeWidth="17" strokeLinecap="round"/>
-          <path d="M 320 380 C 350 372, 368 350, 362 328" fill="none" stroke="#e0435f" strokeWidth="13" strokeLinecap="round"/>
-        </svg>
+        <img
+          src="/logo.png"
+          alt="Bloom Trail"
+          style={{ height: 90, width: 'auto', margin: '0 auto 12px', display: 'block' }}
+        />
         <h1 style={{ fontFamily: 'var(--font-serif)', color: 'var(--rose-deep)', margin: '0 0 4px' }}>
           Bloom Trail
         </h1>

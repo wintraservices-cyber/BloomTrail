@@ -63,6 +63,148 @@ function initials(name) {
   return (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 }
 
+// ---------- .ics (calendar file) export ----------
+// Building this by hand rather than pulling in a library — the format
+// Bloom Trail needs (one VEVENT, optional RRULE) is small and stable.
+
+function icsEscape(text) {
+  return String(text || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n');
+}
+
+// Formats a JS Date as .ics "floating time" (no Z suffix, no timezone
+// conversion): 20260401T090000. Calendar apps interpret this as local time
+// on whatever device opens the file — the right behavior for "this
+// appointment is at 2:30pm", which should stay 2:30pm regardless of the
+// timezone the .ics happens to be generated or opened in.
+function icsDateTimeFloating(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    date.getFullYear() +
+    pad(date.getMonth() + 1) +
+    pad(date.getDate()) +
+    'T' +
+    pad(date.getHours()) +
+    pad(date.getMinutes()) +
+    pad(date.getSeconds())
+  );
+}
+
+function icsDateTimeUTC(date) {
+  return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+// Formats a date-only value (no time component) as .ics wants: 20260401
+function icsDateOnly(iso) {
+  return iso.replace(/-/g, '');
+}
+
+function downloadIcsFile(filename, icsContent) {
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildApptIcs(appt) {
+  const uidStr = `bloom-trail-appt-${appt.id}@bloomtrail`;
+  const now = icsDateTimeUTC(new Date());
+  const title = icsEscape(appt.what || 'Appointment');
+  const descParts = [];
+  if (appt.providerName) descParts.push(`Provider: ${appt.providerName}`);
+  if (appt.notes) descParts.push(appt.notes);
+  const description = icsEscape(descParts.join('\\n\\n'));
+  const location = icsEscape(appt.location || '');
+
+  let dtStart, dtEnd;
+  if (appt.time) {
+    const start = new Date(`${appt.date}T${appt.time}:00`);
+    const end = new Date(start.getTime() + 30 * 60000); // default 30 min
+    dtStart = `DTSTART:${icsDateTimeFloating(start)}`;
+    dtEnd = `DTEND:${icsDateTimeFloating(end)}`;
+  } else {
+    // All-day event when no specific time was set
+    const startDate = icsDateOnly(appt.date);
+    const endDateObj = new Date(appt.date + 'T00:00:00');
+    endDateObj.setDate(endDateObj.getDate() + 1);
+    const endDate = icsDateOnly(endDateObj.toISOString().slice(0, 10));
+    dtStart = `DTSTART;VALUE=DATE:${startDate}`;
+    dtEnd = `DTEND;VALUE=DATE:${endDate}`;
+  }
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Bloom Trail//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${uidStr}`,
+    `DTSTAMP:${now}`,
+    dtStart,
+    dtEnd,
+    `SUMMARY:${title}`,
+    description ? `DESCRIPTION:${description}` : null,
+    location ? `LOCATION:${location}` : null,
+    'BEGIN:VALARM',
+    'TRIGGER:-PT1H',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${title}`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+}
+
+function buildReminderIcs(reminder) {
+  const uidStr = `bloom-trail-reminder-${reminder.id}@bloomtrail`;
+  const now = icsDateTimeUTC(new Date());
+  const title = icsEscape(reminder.what || 'Reminder');
+  const description = icsEscape(reminder.notes || '');
+  const startDate = icsDateOnly(reminder.start);
+  const endDateObj = new Date(reminder.start + 'T00:00:00');
+  endDateObj.setDate(endDateObj.getDate() + 1);
+  const endDate = icsDateOnly(endDateObj.toISOString().slice(0, 10));
+
+  let rrule = null;
+  if (reminder.freq === 'daily') rrule = 'RRULE:FREQ=DAILY';
+  else if (reminder.freq === 'weekly') rrule = 'RRULE:FREQ=WEEKLY';
+  else if (reminder.freq === 'monthly') rrule = 'RRULE:FREQ=MONTHLY';
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Bloom Trail//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${uidStr}`,
+    `DTSTAMP:${now}`,
+    `DTSTART;VALUE=DATE:${startDate}`,
+    `DTEND;VALUE=DATE:${endDate}`,
+    rrule,
+    `SUMMARY:${title}`,
+    description ? `DESCRIPTION:${description}` : null,
+    'BEGIN:VALARM',
+    'TRIGGER:PT9H', // 9am reminder, since these are all-day events
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${title}`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+}
+
+function slugForFilename(text) {
+  return (text || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'event';
+}
+
 function defaultData() {
   return { appointments: [], reminders: [], finance: [], providers: [], timeline: [], currency: '$' };
 }
@@ -76,6 +218,15 @@ function reminderOccursOn(rem, iso) {
   if (rem.freq === 'weekly') return Math.round((target - start) / 86400000) % 7 === 0;
   if (rem.freq === 'monthly') return target.getDate() === start.getDate();
   return false;
+}
+
+// Everything due "today" — used for both the calendar banner and the small
+// badge on the Calendar tab, so the person notices without having to look.
+function getTodaysDueItems(data) {
+  const todayStr = todayISO();
+  const appts = data.appointments.filter((a) => a.date === todayStr);
+  const reminders = data.reminders.filter((r) => reminderOccursOn(r, todayStr));
+  return { appts, reminders, total: appts.length + reminders.length };
 }
 
 export default function BloomTrailApp() {
@@ -242,7 +393,7 @@ export default function BloomTrailApp() {
         onDeleteProfile={deleteCurrentProfile}
         onLogout={handleLogout}
       />
-      <Tabs view={view} setView={setView} />
+      <Tabs view={view} setView={setView} dueCount={getTodaysDueItems(data).total} />
 
       {view === 'calendar' && (
         <CalendarView data={data} calCursor={calCursor} setCalCursor={setCalCursor} updateData={updateData} showToast={showToast} />
@@ -272,12 +423,12 @@ export default function BloomTrailApp() {
 
 function BloomIcon({ size = 34 }) {
   return (
-    <svg width={size} height={size} viewBox="60 150 520 380" style={{ flexShrink: 0 }} aria-hidden="true">
-      <path d="M 320 480 C 260 460, 195 400, 190 320 C 187 260, 225 210, 275 205 C 320 201, 350 235, 345 280 C 342 315, 315 335, 320 480 Z" fill="none" stroke="#c85c8e" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M 320 480 C 330 335, 303 315, 300 280 C 295 235, 325 201, 370 205 C 420 210, 458 260, 455 320 C 450 400, 385 460, 320 480 Z" fill="none" stroke="#c85c8e" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M 320 480 L 320 300" fill="none" stroke="#e0435f" strokeWidth="17" strokeLinecap="round" />
-      <path d="M 320 380 C 350 372, 368 350, 362 328" fill="none" stroke="#e0435f" strokeWidth="13" strokeLinecap="round" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo.png"
+      alt="Bloom Trail"
+      style={{ flexShrink: 0, height: size, width: 'auto', objectFit: 'contain' }}
+    />
   );
 }
 
@@ -313,7 +464,7 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
   );
 }
 
-function Tabs({ view, setView }) {
+function Tabs({ view, setView, dueCount = 0 }) {
   const tabs = [
     ['calendar', 'Calendar'],
     ['appointments', 'Appointments'],
@@ -325,8 +476,32 @@ function Tabs({ view, setView }) {
   return (
     <nav className="tabs">
       {tabs.map(([key, label]) => (
-        <button key={key} className={view === key ? 'active' : ''} onClick={() => setView(key)}>
+        <button key={key} className={view === key ? 'active' : ''} onClick={() => setView(key)} style={{ position: 'relative' }}>
           {label}
+          {key === 'calendar' && dueCount > 0 && (
+            <span
+              title={`${dueCount} due today`}
+              style={{
+                position: 'absolute',
+                top: 2,
+                right: -6,
+                background: 'var(--rose)',
+                color: '#fff',
+                borderRadius: '999px',
+                fontSize: 10,
+                fontWeight: 700,
+                minWidth: 16,
+                height: 16,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+                lineHeight: 1,
+              }}
+            >
+              {dueCount}
+            </span>
+          )}
         </button>
       ))}
     </nav>
@@ -361,8 +536,32 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
     .sort((a, b) => ((a.date + (a.time || '')) < (b.date + (b.time || '')) ? -1 : 1))
     .slice(0, 6);
 
+  const { appts: todaysAppts, reminders: todaysReminders, total: todaysTotal } = getTodaysDueItems(data);
+
   return (
     <div className="view active">
+      {todaysTotal > 0 && (
+        <div className="panel" style={{ borderLeft: '4px solid var(--rose)', background: 'var(--rose-pale)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: todaysTotal > 0 ? 10 : 0 }}>
+            <span style={{ fontSize: 18 }}>🔔</span>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--rose-deep)' }}>
+              Today — {todaysTotal} {todaysTotal === 1 ? 'thing' : 'things'} to remember
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {todaysAppts.map((a) => (
+              <div key={a.id} style={{ fontSize: 13.5 }}>
+                <strong>Appointment:</strong> {a.what || 'Untitled'}{a.time ? ` at ${fmtTime(a.time)}` : ''}{a.providerName ? ` with ${a.providerName}` : ''}
+              </div>
+            ))}
+            {todaysReminders.map((r) => (
+              <div key={r.id} style={{ fontSize: 13.5 }}>
+                <strong>Reminder:</strong> {r.what}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="panel">
         <div className="cal-header">
           <div className="month-label">{label}</div>
@@ -410,6 +609,12 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 function ApptRow({ a, showActions, onEdit, onDelete }) {
   const badge = fmtDateBadge(a.date);
   const isPast = a.date < todayISO();
+
+  function handleAddToCalendar() {
+    const ics = buildApptIcs(a);
+    downloadIcsFile(`${slugForFilename(a.what)}.ics`, ics);
+  }
+
   return (
     <div className="item-row">
       <div className="item-date-badge"><div className="mon">{badge.mon}</div><div className="day">{badge.day}</div></div>
@@ -418,6 +623,16 @@ function ApptRow({ a, showActions, onEdit, onDelete }) {
           <div className="item-title">{a.what || 'Untitled appointment'}{isPast && <span className="badge past">Past</span>}</div>
         </div>
         <div className="item-meta">{[a.providerName, a.time ? fmtTime(a.time) : '', a.location].filter(Boolean).join(' · ')}</div>
+        {!isPast && (
+          <button
+            className="ghost"
+            onClick={handleAddToCalendar}
+            style={{ fontSize: 11.5, padding: '4px 10px', marginTop: 6 }}
+            title="Download a calendar file to add this to your phone's calendar app, with a 1-hour-before reminder"
+          >
+            📅 Add to Calendar
+          </button>
+        )}
         {a.notes && <div className="item-notes">{a.notes}</div>}
         {a.docs && a.docs.length > 0 && (
           <div className="item-docs">
@@ -938,6 +1153,14 @@ function RemindersView({ data, updateData, showToast }) {
                     <div className="item-title">{r.what}<span className="badge recurring">{freqLabel}</span></div>
                   </div>
                   {r.notes && <div className="item-notes">{r.notes}</div>}
+                  <button
+                    className="ghost"
+                    onClick={() => downloadIcsFile(`${slugForFilename(r.what)}.ics`, buildReminderIcs(r))}
+                    style={{ fontSize: 11.5, padding: '4px 10px', marginTop: 6 }}
+                    title="Download a calendar file to add this recurring reminder to your phone's calendar app"
+                  >
+                    📅 Add to Calendar
+                  </button>
                 </div>
                 <button className="icon-btn" onClick={() => handleDelete(r.id)}>✕</button>
               </div>

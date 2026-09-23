@@ -14,11 +14,16 @@ export async function middleware(request) {
     return NextResponse.next();
   }
 
-  // Let Next.js internals and static assets through untouched.
+  // Let Next.js internals and static assets through untouched — this must
+  // cover every public image file, since the login/signup pages (which have
+  // to work with no session at all) reference the logo image and Next.js
+  // auto-generated favicon/icon routes.
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.startsWith('/icon')
+    pathname.startsWith('/icon') ||
+    pathname.startsWith('/apple-icon') ||
+    /\.(png|jpg|jpeg|svg|gif|webp|ico)$/.test(pathname)
   ) {
     return NextResponse.next();
   }

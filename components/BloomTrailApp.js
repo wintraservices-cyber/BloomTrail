@@ -965,6 +965,7 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
   const [feelingReflection, setFeelingReflection] = useState(existing?.feelingReflection || '');
   const [reflecting, setReflecting] = useState(false);
   const [explainingIdx, setExplainingIdx] = useState(null);
+  const [aiMsg, setAiMsg] = useState('');
 
   function addDoc() {
     if (!docName.trim()) return;
@@ -979,7 +980,8 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
 
   async function explainDoc(i) {
     const doc = docs[i];
-    if (!doc?.text) return;
+    if (!doc?.text) { setAiMsg('Add the document text first, then press Explain.'); return; }
+    setAiMsg('');
     setExplainingIdx(i);
     try {
       const resp = await fetch('/api/ai/explain', {
@@ -988,18 +990,19 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
         body: JSON.stringify({ text: doc.text, docType: doc.type }),
       });
       const json = await resp.json();
-      if (!resp.ok) { showToast(json.error || 'Failed to explain'); return; }
+      if (!resp.ok) { setAiMsg(json.error || 'Failed to explain'); return; }
       setDocs((prev) => prev.map((d, idx) => (idx === i ? { ...d, explanation: json.explanation } : d)));
-      if (json.usage?.total) showToast(`AI used ${json.usage.total.toLocaleString()} tokens`);
+      if (json.usage?.total) setAiMsg(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
-      showToast('Something went wrong');
+      setAiMsg('Something went wrong. Please try again.');
     } finally {
       setExplainingIdx(null);
     }
   }
 
   async function reflectOnFeeling() {
-    if (!feeling.trim()) return;
+    if (!feeling.trim()) { setAiMsg('Write a few words about how it went first, then press Reflect.'); return; }
+    setAiMsg('');
     setReflecting(true);
     try {
       const resp = await fetch('/api/ai/reflect', {
@@ -1008,11 +1011,11 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
         body: JSON.stringify({ text: feeling }),
       });
       const json = await resp.json();
-      if (!resp.ok) { showToast(json.error || 'Failed to reflect'); return; }
+      if (!resp.ok) { setAiMsg(json.error || 'Failed to reflect'); return; }
       setFeelingReflection(json.reflection);
-      if (json.usage?.total) showToast(`AI used ${json.usage.total.toLocaleString()} tokens`);
+      if (json.usage?.total) setAiMsg(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
-      showToast('Something went wrong');
+      setAiMsg('Something went wrong. Please try again.');
     } finally {
       setReflecting(false);
     }
@@ -1130,6 +1133,9 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
                   {reflecting ? 'Thinking…' : '✨ Reflect on this'}
                 </button>
               </div>
+              {aiMsg && (
+                <div role="status" style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: /^AI used/.test(aiMsg) ? 'var(--ink-soft)' : '#b3261e' }}>{aiMsg}</div>
+              )}
               {feelingReflection && (
                 <div className="ai-box" style={{ marginTop: 8 }}>
                   <span className="ai-label">Reflection</span>{feelingReflection}

@@ -70,6 +70,22 @@ async function main() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS invites_created_by_idx ON invites(created_by);`;
 
+  // AI usage log: token counts per call, per user. No prompt or response
+  // content is stored.
+  await sql`
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      feature TEXT NOT NULL,
+      model TEXT NOT NULL,
+      input_tokens INT NOT NULL DEFAULT 0,
+      output_tokens INT NOT NULL DEFAULT 0,
+      total_tokens INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS ai_usage_user_created_idx ON ai_usage(user_id, created_at);`;
+
   const orphaned = await sql`SELECT COUNT(*)::int AS count FROM profiles WHERE user_id IS NULL;`;
   if (orphaned[0]?.count > 0) {
     console.log(

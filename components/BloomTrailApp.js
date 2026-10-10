@@ -990,6 +990,7 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
       const json = await resp.json();
       if (!resp.ok) { showToast(json.error || 'Failed to explain'); return; }
       setDocs((prev) => prev.map((d, idx) => (idx === i ? { ...d, explanation: json.explanation } : d)));
+      if (json.usage?.total) showToast(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
       showToast('Something went wrong');
     } finally {
@@ -1009,6 +1010,7 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
       const json = await resp.json();
       if (!resp.ok) { showToast(json.error || 'Failed to reflect'); return; }
       setFeelingReflection(json.reflection);
+      if (json.usage?.total) showToast(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
       showToast('Something went wrong');
     } finally {

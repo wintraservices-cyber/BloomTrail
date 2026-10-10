@@ -80,7 +80,10 @@ In your Vercel project: **Settings** → **Environment Variables**, add:
 | Name | Value |
 |---|---|
 | `BLOOM_TRAIL_SESSION_SECRET` | A long random string — generate one with `openssl rand -hex 32` in a terminal, or any password generator |
-| `ANTHROPIC_API_KEY` | Your API key from [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) (only needed if you want the ✨ Explain / ✨ Reflect buttons to work) |
+| `VERTEX_API_KEY` | Vertex AI API key (Google Cloud). If set, it is used instead of `GEMINI_API_KEY` |
+| `GEMINI_API_KEY` | Your Google Gemini API key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (only needed for the ✨ Explain / ✨ Reflect buttons) |
+| `GEMINI_MODEL` | Optional. Defaults to `gemini-2.5-flash` |
+| `AI_MONTHLY_TOKEN_LIMIT_PER_USER` | Optional. Max AI tokens per user per month; leave unset for no limit |
 
 ### 5. Initialize the database tables
 
@@ -195,3 +198,17 @@ scripts/
 - The Explain/Reflect buttons send only the specific text you put in that
   field to Anthropic's API when you press them — nothing else on the page is
   sent, and nothing is sent unless you press those buttons.
+
+
+## AI usage tracking
+
+Every Explain / Reflect call records its token counts (input, output, total)
+per user in the `ai_usage` table — never the text itself. `GET /api/ai/usage`
+returns the signed-in user's totals for the current month. If you added the
+database before this feature, run `npm run db:init` or paste the `ai_usage`
+SQL from `scripts/init-db.mjs` into the Neon SQL editor.
+
+**Privacy note:** Explain/Reflect send the text you type to Google's Gemini API.
+Check Google's data-use terms for your tier (free-tier inputs may be used to
+improve Google's products; paid tiers generally are not) before using it with
+sensitive health information.

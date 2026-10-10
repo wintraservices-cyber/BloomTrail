@@ -992,7 +992,6 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
       const json = await resp.json();
       if (!resp.ok) { setAiMsg(json.error || 'Failed to explain'); return; }
       setDocs((prev) => prev.map((d, idx) => (idx === i ? { ...d, explanation: json.explanation } : d)));
-      if (json.usage?.total) setAiMsg(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
       setAiMsg('Something went wrong. Please try again.');
     } finally {
@@ -1013,7 +1012,6 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
       const json = await resp.json();
       if (!resp.ok) { setAiMsg(json.error || 'Failed to reflect'); return; }
       setFeelingReflection(json.reflection);
-      if (json.usage?.total) setAiMsg(`AI used ${json.usage.total.toLocaleString()} tokens`);
     } catch (e) {
       setAiMsg('Something went wrong. Please try again.');
     } finally {
@@ -1134,7 +1132,7 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
                 </button>
               </div>
               {aiMsg && (
-                <div role="status" style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: /^AI used/.test(aiMsg) ? 'var(--ink-soft)' : '#b3261e' }}>{aiMsg}</div>
+                <div role="status" style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: '#b3261e' }}>{aiMsg}</div>
               )}
               {feelingReflection && (
                 <div className="ai-box" style={{ marginTop: 8 }}>

@@ -177,6 +177,8 @@ function buildReminderIcs(reminder) {
   if (reminder.freq === 'daily') rrule = 'RRULE:FREQ=DAILY';
   else if (reminder.freq === 'weekly') rrule = 'RRULE:FREQ=WEEKLY';
   else if (reminder.freq === 'monthly') rrule = 'RRULE:FREQ=MONTHLY';
+  // Optional end date: the last day this reminder should occur (inclusive).
+  if (rrule && reminder.end) rrule += `;UNTIL=${icsDateOnly(reminder.end)}`;
 
   return [
     'BEGIN:VCALENDAR',
@@ -214,6 +216,7 @@ function reminderOccursOn(rem, iso) {
   const start = new Date(rem.start + 'T00:00:00');
   const target = new Date(iso + 'T00:00:00');
   if (target < start) return false;
+  if (rem.end && target > new Date(rem.end + 'T00:00:00')) return false;
   if (rem.freq === 'daily') return true;
   if (rem.freq === 'weekly') return Math.round((target - start) / 86400000) % 7 === 0;
   if (rem.freq === 'monthly') return target.getDate() === start.getDate();
@@ -1396,6 +1399,7 @@ function RemindersView({ data, updateData, showToast }) {
                 <div className="item-date-badge" style={{ background: 'var(--peach-soft)' }}>
                   <div className="mon" style={{ color: 'var(--gold)' }}>{freqLabel}</div>
                   <div className="day" style={{ fontSize: 12 }}>since {b.mon} {b.day}</div>
+                  {r.end && (() => { const e = fmtDateBadge(r.end); return <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>until {e.mon} {e.day}</div>; })()}
                 </div>
                 <div className="item-body">
                   <div className="title-row">
@@ -1426,12 +1430,16 @@ function ReminderModal({ onCancel, onSave }) {
   const [what, setWhat] = useState('');
   const [freq, setFreq] = useState('daily');
   const [start, setStart] = useState(todayISO());
+  const [end, setEnd] = useState('');
   const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!what.trim()) return;
-    onSave({ what: what.trim(), freq, start: start || todayISO(), notes: notes.trim() });
+    const startISO = start || todayISO();
+    if (end && end < startISO) { setError('The end date can\u2019t be before the start date.'); return; }
+    onSave({ what: what.trim(), freq, start: startISO, end: end || '', notes: notes.trim() });
   }
 
   return (
@@ -1454,13 +1462,18 @@ function ReminderModal({ onCancel, onSave }) {
             </div>
             <div className="field">
               <label>Starting</label>
-              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <input type="date" value={start} onChange={(e) => { setStart(e.target.value); setError(''); }} />
+            </div>
+            <div className="field">
+              <label>Ends <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+              <input type="date" value={end} min={start || undefined} onChange={(e) => { setEnd(e.target.value); setError(''); }} />
             </div>
             <div className="field full">
               <label>Notes</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Dosage, refill pharmacy, etc." />
             </div>
           </div>
+          {error && <div role="alert" style={{ color: '#b3261e', fontSize: 13, marginTop: 8 }}>{error}</div>}
           <div className="form-actions">
             <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
             <button type="submit" className="primary">Save reminder</button>

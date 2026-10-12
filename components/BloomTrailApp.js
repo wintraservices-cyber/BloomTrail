@@ -225,12 +225,32 @@ function reminderOccursOn(rem, iso) {
 
 // Everything due "today" — used for both the calendar banner and the small
 // badge on the Calendar tab, so the person notices without having to look.
+function isReminderDone(r, iso) {
+  return Array.isArray(r.doneDates) && r.doneDates.includes(iso);
+}
+
+// Mark one occurrence (a specific date) of a reminder done / not done.
+// Recurring reminders keep a list of completed dates, so ticking today's
+// dose doesn't tick tomorrow's.
+function toggleReminderDoneIn(d, id, iso) {
+  d.reminders = d.reminders.map((r) => {
+    if (r.id !== id) return r;
+    const done = Array.isArray(r.doneDates) ? r.doneDates : [];
+    return { ...r, doneDates: done.includes(iso) ? done.filter((x) => x !== iso) : [...done, iso] };
+  });
+  return d;
+}
+
 function getTodaysDueItems(data) {
   const todayStr = todayISO();
   const appts = data.appointments.filter((a) => a.date === todayStr);
   const reminders = data.reminders.filter((r) => reminderOccursOn(r, todayStr));
-  return { appts, reminders, total: appts.length + reminders.length };
+  // `total` counts only what's still left to do (drives the 🔔 badge).
+  const remaining = appts.length + reminders.filter((r) => !isReminderDone(r, todayStr)).length;
+  return { appts, reminders, total: remaining };
 }
+
+const doneStyle = { textDecoration: 'line-through', opacity: 0.55 };
 
 export default function BloomTrailApp() {
   const router = useRouter();
@@ -674,6 +694,10 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 
   const { appts: todaysAppts, reminders: todaysReminders, total: todaysTotal } = getTodaysDueItems(data);
 
+  function toggleDone(r, iso) {
+    updateData((d) => toggleReminderDoneIn(d, r.id, iso));
+  }
+
   function deleteReminder(r) {
     const msg = r.freq && r.freq !== 'once'
       ? `Delete the recurring reminder "${r.what}"? It will be removed from every day, not just today.`
@@ -685,12 +709,12 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 
   return (
     <div className="view active">
-      {todaysTotal > 0 && (
+      {(todaysAppts.length + todaysReminders.length) > 0 && (
         <div className="panel" style={{ borderLeft: '4px solid var(--rose)', background: 'var(--rose-pale)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: todaysTotal > 0 ? 10 : 0 }}>
             <span style={{ fontSize: 18 }}>🔔</span>
             <h2 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--rose-deep)' }}>
-              Today — {todaysTotal} {todaysTotal === 1 ? 'thing' : 'things'} to remember
+              {todaysTotal === 0 ? 'Today — all done ✓' : `Today — ${todaysTotal} ${todaysTotal === 1 ? 'thing' : 'things'} to remember`}
             </h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -701,7 +725,14 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
             ))}
             {todaysReminders.map((r) => (
               <div key={r.id} style={{ fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1 }}><strong>Reminder:</strong> {r.what}</span>
+                <input
+                  type="checkbox"
+                  checked={isReminderDone(r, todayStr)}
+                  onChange={() => toggleDone(r, todayStr)}
+                  aria-label={`Mark ${r.what} done for today`}
+                  style={{ width: 18, height: 18, flexShrink: 0, accentColor: 'var(--rose-deep, #b0386a)' }}
+                />
+                <span style={{ flex: 1, ...(isReminderDone(r, todayStr) ? doneStyle : null) }}><strong>Reminder:</strong> {r.what}</span>
                 <button type="button" className="icon-btn" title="Delete this reminder" aria-label={`Delete reminder ${r.what}`} onClick={() => deleteReminder(r)}>✕</button>
               </div>
             ))}
@@ -758,6 +789,7 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
           data={data}
           onClose={() => setSelectedDay(null)}
           onDeleteReminder={deleteReminder}
+          onToggleReminderDone={toggleDone}
         />
       )}
       <div className="panel">
@@ -774,7 +806,7 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 
 // Shows everything tied to one specific date — past or future — so the
 // calendar works as a real history, not just an upcoming-only view.
-function DayDetailModal({ iso, data, onClose, onDeleteReminder }) {
+function DayDetailModal({ iso, data, onClose, onDeleteReminder, onToggleReminderDone }) {
   const dayAppts = data.appointments.filter((a) => a.date === iso);
   const dayReminders = data.reminders.filter((r) => reminderOccursOn(r, iso));
   const daySymptoms = data.timeline.filter((s) => s.date === iso);
@@ -811,7 +843,16 @@ function DayDetailModal({ iso, data, onClose, onDeleteReminder }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {dayReminders.map((r) => (
                     <div key={r.id} className="item-row">
-                      <div className="item-body">
+                      {onToggleReminderDone && (
+                        <input
+                          type="checkbox"
+                          checked={isReminderDone(r, iso)}
+                          onChange={() => onToggleReminderDone(r, iso)}
+                          aria-label={`Mark ${r.what} done`}
+                          style={{ width: 18, height: 18, flexShrink: 0, alignSelf: 'center', accentColor: 'var(--rose-deep, #b0386a)' }}
+                        />
+                      )}
+                      <div className="item-body" style={isReminderDone(r, iso) ? doneStyle : undefined}>
                         <div className="item-title">{r.what}<span className="badge recurring">{r.freq}</span></div>
                         {r.notes && <div className="item-notes">{r.notes}</div>}
                       </div>
@@ -1388,6 +1429,10 @@ function RemindersView({ data, updateData, showToast }) {
     closeModal();
   }
 
+  function toggleDoneToday(id) {
+    updateData((d) => toggleReminderDoneIn(d, id, todayISO()));
+  }
+
   function handleDelete(id) {
     updateData((d) => { d.reminders = d.reminders.filter((r) => r.id !== id); return d; });
     showToast('Reminder removed');
@@ -1407,6 +1452,8 @@ function RemindersView({ data, updateData, showToast }) {
           data.reminders.map((r) => {
             const freqLabel = r.freq.charAt(0).toUpperCase() + r.freq.slice(1);
             const b = fmtDateBadge(r.start);
+            const dueToday = reminderOccursOn(r, todayISO());
+            const doneToday = isReminderDone(r, todayISO());
             return (
               <div key={r.id} className="item-row">
                 <div className="item-date-badge" style={{ background: 'var(--peach-soft)' }}>
@@ -1416,9 +1463,20 @@ function RemindersView({ data, updateData, showToast }) {
                 </div>
                 <div className="item-body">
                   <div className="title-row">
-                    <div className="item-title">{r.what}<span className="badge recurring">{freqLabel}</span></div>
+                    <div className="item-title" style={doneToday ? doneStyle : undefined}>{r.what}<span className="badge recurring">{freqLabel}</span></div>
                   </div>
-                  {r.notes && <div className="item-notes">{r.notes}</div>}
+                  {r.notes && <div className="item-notes" style={doneToday ? doneStyle : undefined}>{r.notes}</div>}
+                  {dueToday && (
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, marginTop: 6, marginRight: 10, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={doneToday}
+                        onChange={() => toggleDoneToday(r.id)}
+                        style={{ width: 16, height: 16, accentColor: 'var(--rose-deep, #b0386a)' }}
+                      />
+                      {doneToday ? 'Done for today' : 'Mark done for today'}
+                    </label>
+                  )}
                   <button
                     className="ghost"
                     onClick={() => downloadIcsFile(`${slugForFilename(r.what)}.ics`, buildReminderIcs(r))}

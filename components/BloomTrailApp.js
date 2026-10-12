@@ -1368,11 +1368,24 @@ function ProviderModal({ onCancel, onSave }) {
 
 function RemindersView({ data, updateData, showToast }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // the reminder being edited, or null for a new one
+
+  function openNew() { setEditing(null); setModalOpen(true); }
+  function openEdit(r) { setEditing(r); setModalOpen(true); }
+  function closeModal() { setModalOpen(false); setEditing(null); }
 
   function handleSave(r) {
-    updateData((d) => { d.reminders.push({ id: uid(), ...r }); return d; });
-    setModalOpen(false);
-    showToast('Reminder saved');
+    if (editing) {
+      updateData((d) => {
+        d.reminders = d.reminders.map((x) => (x.id === editing.id ? { ...x, ...r } : x));
+        return d;
+      });
+      showToast('Reminder updated');
+    } else {
+      updateData((d) => { d.reminders.push({ id: uid(), ...r }); return d; });
+      showToast('Reminder saved');
+    }
+    closeModal();
   }
 
   function handleDelete(id) {
@@ -1385,7 +1398,7 @@ function RemindersView({ data, updateData, showToast }) {
       <div className="panel">
         <div className="panel-head">
           <h2>Recurring reminders</h2>
-          <button className="primary" onClick={() => setModalOpen(true)}>+ New reminder</button>
+          <button className="primary" onClick={openNew}>+ New reminder</button>
         </div>
         <div className="section-note">Meds, refills, and anything that repeats on a schedule.</div>
         {data.reminders.length === 0 ? (
@@ -1415,23 +1428,24 @@ function RemindersView({ data, updateData, showToast }) {
                     📅 Add to Calendar
                   </button>
                 </div>
-                <button className="icon-btn" onClick={() => handleDelete(r.id)}>✕</button>
+                <button className="icon-btn" title="Edit this reminder" aria-label={`Edit reminder ${r.what}`} onClick={() => openEdit(r)}>✎</button>
+                <button className="icon-btn" title="Delete this reminder" aria-label={`Delete reminder ${r.what}`} onClick={() => handleDelete(r.id)}>✕</button>
               </div>
             );
           })
         )}
       </div>
-      {modalOpen && <ReminderModal onCancel={() => setModalOpen(false)} onSave={handleSave} />}
+      {modalOpen && <ReminderModal key={editing?.id || 'new'} initial={editing} onCancel={closeModal} onSave={handleSave} />}
     </div>
   );
 }
 
-function ReminderModal({ onCancel, onSave }) {
-  const [what, setWhat] = useState('');
-  const [freq, setFreq] = useState('daily');
-  const [start, setStart] = useState(todayISO());
-  const [end, setEnd] = useState('');
-  const [notes, setNotes] = useState('');
+function ReminderModal({ initial, onCancel, onSave }) {
+  const [what, setWhat] = useState(initial?.what || '');
+  const [freq, setFreq] = useState(initial?.freq || 'daily');
+  const [start, setStart] = useState(initial?.start || todayISO());
+  const [end, setEnd] = useState(initial?.end || '');
+  const [notes, setNotes] = useState(initial?.notes || '');
   const [error, setError] = useState('');
 
   function handleSubmit(e) {
@@ -1445,7 +1459,7 @@ function ReminderModal({ onCancel, onSave }) {
   return (
     <div className="modal-backdrop open" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="modal">
-        <h3>New recurring reminder</h3>
+        <h3>{initial ? 'Edit reminder' : 'New recurring reminder'}</h3>
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="field full">
@@ -1476,7 +1490,7 @@ function ReminderModal({ onCancel, onSave }) {
           {error && <div role="alert" style={{ color: '#b3261e', fontSize: 13, marginTop: 8 }}>{error}</div>}
           <div className="form-actions">
             <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
-            <button type="submit" className="primary">Save reminder</button>
+            <button type="submit" className="primary">{initial ? 'Save changes' : 'Save reminder'}</button>
           </div>
         </form>
       </div>

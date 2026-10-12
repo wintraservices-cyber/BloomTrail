@@ -671,6 +671,15 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 
   const { appts: todaysAppts, reminders: todaysReminders, total: todaysTotal } = getTodaysDueItems(data);
 
+  function deleteReminder(r) {
+    const msg = r.freq && r.freq !== 'once'
+      ? `Delete the recurring reminder "${r.what}"? It will be removed from every day, not just today.`
+      : `Delete the reminder "${r.what}"?`;
+    if (!confirm(msg)) return;
+    updateData((d) => { d.reminders = d.reminders.filter((x) => x.id !== r.id); return d; });
+    showToast('Reminder removed');
+  }
+
   return (
     <div className="view active">
       {todaysTotal > 0 && (
@@ -688,8 +697,9 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
               </div>
             ))}
             {todaysReminders.map((r) => (
-              <div key={r.id} style={{ fontSize: 13.5 }}>
-                <strong>Reminder:</strong> {r.what}
+              <div key={r.id} style={{ fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1 }}><strong>Reminder:</strong> {r.what}</span>
+                <button type="button" className="icon-btn" title="Delete this reminder" aria-label={`Delete reminder ${r.what}`} onClick={() => deleteReminder(r)}>✕</button>
               </div>
             ))}
           </div>
@@ -744,6 +754,7 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
           iso={selectedDay}
           data={data}
           onClose={() => setSelectedDay(null)}
+          onDeleteReminder={deleteReminder}
         />
       )}
       <div className="panel">
@@ -760,7 +771,7 @@ function CalendarView({ data, calCursor, setCalCursor, updateData, showToast }) 
 
 // Shows everything tied to one specific date — past or future — so the
 // calendar works as a real history, not just an upcoming-only view.
-function DayDetailModal({ iso, data, onClose }) {
+function DayDetailModal({ iso, data, onClose, onDeleteReminder }) {
   const dayAppts = data.appointments.filter((a) => a.date === iso);
   const dayReminders = data.reminders.filter((r) => reminderOccursOn(r, iso));
   const daySymptoms = data.timeline.filter((s) => s.date === iso);
@@ -801,6 +812,9 @@ function DayDetailModal({ iso, data, onClose }) {
                         <div className="item-title">{r.what}<span className="badge recurring">{r.freq}</span></div>
                         {r.notes && <div className="item-notes">{r.notes}</div>}
                       </div>
+                      {onDeleteReminder && (
+                        <button type="button" className="icon-btn" title="Delete this reminder" aria-label={`Delete reminder ${r.what}`} onClick={() => onDeleteReminder(r)}>✕</button>
+                      )}
                     </div>
                   ))}
                 </div>

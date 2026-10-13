@@ -86,6 +86,28 @@ async function main() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS ai_usage_user_created_idx ON ai_usage(user_id, created_at);`;
 
+  // Push notifications: one row per installed device that opted in, plus a
+  // small log so each reminder is only sent once per day.
+  await sql`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      tz TEXT NOT NULL DEFAULT 'UTC',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id);`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS push_log (
+      key TEXT PRIMARY KEY,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
   const orphaned = await sql`SELECT COUNT(*)::int AS count FROM profiles WHERE user_id IS NULL;`;
   if (orphaned[0]?.count > 0) {
     console.log(

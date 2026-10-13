@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import PushSettings from '@/components/PushSettings';
+import { reminderOccursOn } from '@/lib/recurrence';
 
 const CURRENCIES = [
   { value: '$', label: '$ — Dollar' },
@@ -211,17 +213,6 @@ function defaultData() {
   return { appointments: [], reminders: [], finance: [], providers: [], timeline: [], currency: '$' };
 }
 
-function reminderOccursOn(rem, iso) {
-  if (!rem.start) return false;
-  const start = new Date(rem.start + 'T00:00:00');
-  const target = new Date(iso + 'T00:00:00');
-  if (target < start) return false;
-  if (rem.end && target > new Date(rem.end + 'T00:00:00')) return false;
-  if (rem.freq === 'daily') return true;
-  if (rem.freq === 'weekly') return Math.round((target - start) / 86400000) % 7 === 0;
-  if (rem.freq === 'monthly') return target.getDate() === start.getDate();
-  return false;
-}
 
 // Everything due "today" — used for both the calendar banner and the small
 // badge on the Calendar tab, so the person notices without having to look.
@@ -1446,6 +1437,7 @@ function RemindersView({ data, updateData, showToast }) {
           <button className="primary" onClick={openNew}>+ New reminder</button>
         </div>
         <div className="section-note">Meds, refills, and anything that repeats on a schedule.</div>
+        <PushSettings />
         {data.reminders.length === 0 ? (
           <div className="empty-state"><div className="big">No reminders yet</div>Add meds, refills, or anything recurring.</div>
         ) : (
@@ -1460,6 +1452,7 @@ function RemindersView({ data, updateData, showToast }) {
                   <div className="mon" style={{ color: 'var(--gold)' }}>{freqLabel}</div>
                   <div className="day" style={{ fontSize: 12 }}>since {b.mon} {b.day}</div>
                   {r.end && (() => { const e = fmtDateBadge(r.end); return <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>until {e.mon} {e.day}</div>; })()}
+                  {r.time && <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>🔔 {fmtTime(r.time)}</div>}
                 </div>
                 <div className="item-body">
                   <div className="title-row">
@@ -1503,6 +1496,7 @@ function ReminderModal({ initial, onCancel, onSave }) {
   const [freq, setFreq] = useState(initial?.freq || 'daily');
   const [start, setStart] = useState(initial?.start || todayISO());
   const [end, setEnd] = useState(initial?.end || '');
+  const [time, setTime] = useState(initial?.time || '');
   const [notes, setNotes] = useState(initial?.notes || '');
   const [error, setError] = useState('');
 
@@ -1511,7 +1505,7 @@ function ReminderModal({ initial, onCancel, onSave }) {
     if (!what.trim()) return;
     const startISO = start || todayISO();
     if (end && end < startISO) { setError('The end date can\u2019t be before the start date.'); return; }
-    onSave({ what: what.trim(), freq, start: startISO, end: end || '', notes: notes.trim() });
+    onSave({ what: what.trim(), freq, start: startISO, end: end || '', time: time || '', notes: notes.trim() });
   }
 
   return (
@@ -1539,6 +1533,10 @@ function ReminderModal({ initial, onCancel, onSave }) {
             <div className="field">
               <label>Ends <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
               <input type="date" value={end} min={start || undefined} onChange={(e) => { setEnd(e.target.value); setError(''); }} />
+            </div>
+            <div className="field full">
+              <label>Notify me at <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional — needs notifications turned on)</span></label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
             <div className="field full">
               <label>Notes</label>

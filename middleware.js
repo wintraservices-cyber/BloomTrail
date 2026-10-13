@@ -5,7 +5,7 @@ import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth';
 // itself, and signup (which allows the very first bootstrap account to be
 // created with no one logged in yet; the route itself re-checks whether a
 // session is required once there's already at least one user).
-const PUBLIC_PATHS = ['/login', '/signup', '/api/auth/login', '/api/auth/signup'];
+const PUBLIC_PATHS = ['/login', '/signup', '/api/auth/login', '/api/auth/signup', '/api/cron/push'];  // cron route checks its own secret
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;

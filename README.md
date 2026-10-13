@@ -212,3 +212,27 @@ SQL from `scripts/init-db.mjs` into the Neon SQL editor.
 Check Google's data-use terms for your tier (free-tier inputs may be used to
 improve Google's products; paid tiers generally are not) before using it with
 sensitive health information.
+
+
+## Push notifications (reminders + appointments)
+
+Reminders can have an optional "Notify me at" time. When notifications are
+turned on (Reminders tab → Turn on), the app sends a push at that time, and one
+hour before any appointment that has a time. Notifications go only to the
+signed-in user's own devices, and each one is sent once per day.
+
+**Server setup**
+1. Environment variables in Vercel: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT` (a `mailto:` address) and `CRON_SECRET`.
+2. Create the two new tables (SQL in `scripts/init-db.mjs`, or run `npm run db:init`).
+3. Something must call `GET /api/cron/push` every ~5 minutes with the header
+   `Authorization: Bearer <CRON_SECRET>`. The included GitHub Action
+   (`.github/workflows/push-reminders.yml`) does this for free: add repository
+   secrets `APP_URL` and `CRON_SECRET`. (Vercel Cron on the free Hobby plan can
+   only run once a day, so it isn't suitable.)
+
+**Notes**
+- iPhone: notifications only work after the app is added to the Home Screen (iOS 16.4+).
+- Notification text includes the reminder name, so it can appear on a locked screen.
+- Push is a banner and sound, not a phone alarm. For critical items also use "Add to Calendar".
+- GitHub pauses scheduled workflows after 60 days of no repository activity.

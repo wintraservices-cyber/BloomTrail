@@ -23,6 +23,9 @@ export async function middleware(request) {
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icon') ||
     pathname.startsWith('/apple-icon') ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/sw.js' ||
+    pathname === '/offline.html' ||
     /\.(png|jpg|jpeg|svg|gif|webp|ico)$/.test(pathname)
   ) {
     return NextResponse.next();

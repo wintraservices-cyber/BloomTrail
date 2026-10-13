@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bloom Trail — offline</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fdf5f8;color:#3a2233;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:24px}
+  .card{max-width:340px}
+  img{width:96px;height:96px;border-radius:22px}
+  h1{font-size:20px;margin:16px 0 8px}
+  p{color:#7d5f74;line-height:1.5;margin:0 0 20px}
+  button{background:#c85c8e;color:#fff;border:0;border-radius:10px;padding:12px 22px;font-size:15px;font-weight:600}
+  @media (prefers-color-scheme: dark){body{background:#241621;color:#f6e7ee}p{color:#cfa8bf}}
+</style></head>
+<body><div class="card">
+  <img src="/icons/icon-192.png" alt="">
+  <h1>You're offline</h1>
+  <p>Bloom Trail needs a connection to load your private health data. It's kept off this device on purpose.</p>
+  <button onclick="location.reload()">Try again</button>
+</div></body></html>

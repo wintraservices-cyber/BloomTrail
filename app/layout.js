@@ -1,8 +1,18 @@
 import './globals.css';
+import PwaSetup from '@/components/PwaSetup';
 
 export const metadata = {
   title: 'Bloom Trail',
   description: 'Every step of your medical journey, gathered in one place',
+  applicationName: 'Bloom Trail',
+  appleWebApp: { capable: true, title: 'Bloom Trail', statusBarStyle: 'default' },
+  formatDetection: { telephone: false },
+};
+
+export const viewport = {
+  themeColor: '#c85c8e',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {
@@ -16,7 +26,10 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaSetup />
+      </body>
     </html>
   );
 }

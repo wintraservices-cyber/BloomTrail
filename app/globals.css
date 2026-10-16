@@ -17,7 +17,11 @@
     --font-serif: "Source Serif Pro", "Georgia", serif;
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   }
+  :root { color-scheme: light; }
+  :root[data-theme="light"] { color-scheme: light; }
   :root[data-theme="dark"] {
+    color-scheme: dark;
+    --danger: #ff9aa8;
     --ink: #f6e7ee;
     --ink-soft: #cfa8bf;
     --paper: #241621;
@@ -32,6 +36,8 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --danger: #ff9aa8;
       --ink: #f6e7ee;
       --ink-soft: #cfa8bf;
       --paper: #241621;
@@ -65,6 +71,8 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
     margin-bottom: 26px;
     border-bottom: 1px solid var(--line);
     padding-bottom: 18px;
@@ -407,7 +415,7 @@
   }
   .status-pill.unpaid { background: var(--peach-soft); color: var(--danger); }
   .status-pill.paid { background: color-mix(in srgb, var(--rose) 18%, transparent); color: var(--rose-deep); }
-  .status-pill.pending { background: color-mix(in srgb, var(--gold) 25%, transparent); color: #8a6b1f; }
+  .status-pill.pending { background: color-mix(in srgb, var(--gold) 25%, transparent); color: var(--ink); }
 
   .fab {
     position: fixed;

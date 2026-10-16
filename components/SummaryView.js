@@ -195,7 +195,7 @@ export default function SummaryView({ data }) {
               <h2>✨ Written recap</h2>
               <button className="ghost ai-btn" onClick={writeSummary} disabled={aiBusy}>{aiBusy ? 'Thinking…' : aiText ? '↻ Rewrite' : '✨ Write a recap'}</button>
             </div>
-            {aiErr && <div role="alert" style={{ color: '#b3261e', fontSize: 13 }}>{aiErr}</div>}
+            {aiErr && <div role="alert" style={{ color: 'var(--danger)', fontSize: 13 }}>{aiErr}</div>}
             {aiText ? (
               <div className="ai-box"><span className="ai-label">Recap</span>{aiText}
                 <span className="ai-disclaimer" style={{ display: 'block', marginTop: 6 }}>General information only, not medical advice.</span>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import PushSettings from '@/components/PushSettings';
 import SummaryView from '@/components/SummaryView';
+import ThemeToggle from '@/components/ThemeToggle';
 import { reminderOccursOn } from '@/lib/recurrence';
 
 const CURRENCIES = [
@@ -462,7 +463,7 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         <div className="today">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <select value={currentProfileId || ''} onChange={onProfileChange} style={{ width: 'auto', padding: '6px 26px 6px 10px', fontSize: 13 }}>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -479,6 +480,7 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
           >
             Invite someone
           </button>
+          <ThemeToggle />
           <button className="ghost" onClick={onLogout} style={{ fontSize: 12, padding: '6px 10px' }}>Log out</button>
         </div>
       </div>
@@ -1184,7 +1186,7 @@ function ApptModal({ existing, providers, onCancel, onSave, showToast }) {
                 </button>
               </div>
               {aiMsg && (
-                <div role="status" style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: '#b3261e' }}>{aiMsg}</div>
+                <div role="status" style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: 'var(--danger)' }}>{aiMsg}</div>
               )}
               {feelingReflection && (
                 <div className="ai-box" style={{ marginTop: 8 }}>
@@ -1546,7 +1548,7 @@ function ReminderModal({ initial, onCancel, onSave }) {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Dosage, refill pharmacy, etc." />
             </div>
           </div>
-          {error && <div role="alert" style={{ color: '#b3261e', fontSize: 13, marginTop: 8 }}>{error}</div>}
+          {error && <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{error}</div>}
           <div className="form-actions">
             <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
             <button type="submit" className="primary">{initial ? 'Save changes' : 'Save reminder'}</button>

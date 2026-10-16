@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import PushSettings from '@/components/PushSettings';
+import SummaryView from '@/components/SummaryView';
 import { reminderOccursOn } from '@/lib/recurrence';
 
 const CURRENCIES = [
@@ -427,6 +428,7 @@ export default function BloomTrailApp() {
       {view === 'finance' && (
         <FinanceView data={data} updateData={updateData} showToast={showToast} />
       )}
+      {view === 'summary' && <SummaryView data={data} />}
 
       <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
     </div>
@@ -618,6 +620,7 @@ function Tabs({ view, setView, dueCount = 0 }) {
     ['providers', 'Care Team'],
     ['reminders', 'Reminders'],
     ['finance', 'Finances'],
+    ['summary', 'Summary'],
   ];
   return (
     <nav className="tabs">

@@ -2,7 +2,7 @@
 // Privacy note: this app holds health data, so the worker NEVER caches pages
 // or API responses — only static build assets and the offline screen. Data
 // always comes fresh from the server (and requires a valid login).
-const CACHE = 'bloom-trail-static-v1';
+const CACHE = 'bloom-trail-static-v2';
 const PRECACHE = ['/offline.html', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

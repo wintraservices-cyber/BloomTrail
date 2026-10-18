@@ -69,14 +69,17 @@
 
   header.top {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 12px 14px;
     margin-bottom: 26px;
     border-bottom: 1px solid var(--line);
     padding-bottom: 18px;
   }
+  header.top .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  header.top .controls { flex: 1 1 100%; }
+  header.top .controls-inner { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   header.top h1 {
     font-family: var(--font-serif);
     font-weight: 600;

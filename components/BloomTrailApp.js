@@ -454,16 +454,16 @@ function Header({ profiles, currentProfileId, onProfileChange, onAddProfile, onR
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   return (
     <header className="top">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <BloomIcon />
+      <div className="brand">
+        <BloomIcon size={48} />
         <div>
           <h1>Bloom Trail</h1>
           <div className="tagline">Every step of your medical journey, gathered in one place</div>
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <div className="today">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <div className="today">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+      <div className="controls">
+        <div className="controls-inner">
           <select value={currentProfileId || ''} onChange={onProfileChange} style={{ width: 'auto', padding: '6px 26px 6px 10px', fontSize: 13 }}>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
